@@ -1,0 +1,13 @@
+accelerate
+diffusers
+ipykernel
+matplotlib
+pathlib
+pickleshare
+pip-chill
+termcolor
+tomli
+torch
+torchvision
+transformers
+huggingface_hub

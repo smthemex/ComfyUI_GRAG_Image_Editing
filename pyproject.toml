@@ -1,0 +1,16 @@
+[project]
+name = "grag_image_editing"
+description = "GRAG-Image-Editing : Group-Relative Attention Guidance for Image Editing,you can try it in comfyUI"
+version = "1.0.0"
+license = {file = "LICENSE"}
+dependencies = ["accelerate", "diffusers", "ipykernel", "matplotlib", "pathlib", "pickleshare", "pip-chill", "termcolor", "tomli", "torch", "torchvision", "transformers", "huggingface_hub"]
+
+[project.urls]
+Repository = "https://github.com/smthemex/ComfyUI_GRAG_Image_Editing"
+#  Used by Comfy Registry https://registry.comfy.org
+
+[tool.comfy]
+PublisherId = "smthemex"
+DisplayName = "ComfyUI_GRAG_Image_Editing"
+Icon = ""
+includes = []
