@@ -51,16 +51,17 @@ def load_model(gguf_path,unet_path,node_path):
         print("loading from safetensors")
         try:
             with temp_patch_module_attr("diffusers", "QwenImageTransformer2DModel", QwenImageTransformer2DModel):
-                transformer = QwenImageTransformer2DModel.from_single_file(gguf_path,config=os.path.join(node_path, "Qwen_Edit_GRAG/Qwen-Image-Edit/transformer"),torch_dtype=torch.bfloat16,)
+                transformer = QwenImageTransformer2DModel.from_single_file(unet_path,config=os.path.join(node_path, "Qwen_Edit_GRAG/Qwen-Image-Edit/transformer"),torch_dtype=torch.bfloat16,)
         except:
             from safetensors.torch import load_file
             t_state_dict=load_file(unet_path)
             new_dict=replace_key(t_state_dict)
+            del t_state_dict
             with temp_patch_module_attr("diffusers", "QwenImageTransformer2DModel", QwenImageTransformer2DModel):
                 unet_config = QwenImageTransformer2DModel.load_config(os.path.join(node_path, "Qwen_Edit_GRAG/Qwen-Image-Edit/transformer/config.json"))
                 transformer = QwenImageTransformer2DModel.from_config(unet_config).to(torch.bfloat16)
             transformer.load_state_dict(new_dict, strict=False)
-            del t_state_dict,new_dict
+            del new_dict
     if plus_mode:
         pipeline = QwenImageEditPlusPipeline.from_pretrained(os.path.join(node_path, "Qwen_Edit_GRAG/Qwen-Image-Edit"), scheduler = scheduler,vae=None,text_encoder=None,transformer=transformer,torch_dtype=torch.bfloat16,)
     else:
