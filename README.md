@@ -1,6 +1,11 @@
 # ComfyUI_GRAG_Image_Editing
 [GRAG-Image-Editing](https://github.com/little-misfit/GRAG-Image-Editing) : Group-Relative Attention Guidance for Image Editing,you can try it in comfyUI 
 
+# Update
+* fix safetensor load error ,if use safetensor need Ram >64 / 使用单体safetensor 加载时，尤其是comfy的量化版本，因为diffuser要二次处理，对内存占用较大，所以推荐用fp16的模型或者gguf，此插件对量化的safetensor模型内存优化支持一般；
+* add 2509 support / 增加2509模型的支持，注意要输入2张以上的图片
+
+
 1.Installation  
 -----
   In the ./ComfyUI/custom_nodes directory, run the following:   
