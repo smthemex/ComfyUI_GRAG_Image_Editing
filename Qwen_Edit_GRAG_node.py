@@ -13,6 +13,7 @@ import comfy.model_management as mm
 from .model_loader_utils import tensor2list,nomarl_upscale,get_emb_data
 from .Qwen_Edit_GRAG.inference import load_model,inference
 from .Qwen_Edit_GRAG.hacked_models.scheduler import FlowMatchEulerDiscreteScheduler
+from .Qwen_Edit_GRAG.hacked_models.pipeline_plus import QwenImageEditPlusPipeline
 import node_helpers
 MAX_SEED = np.iinfo(np.int32).max
 node_cr_path = os.path.dirname(os.path.abspath(__file__))
@@ -78,12 +79,15 @@ class Qwen_Edit_GRAG_SM_Encode(io.ComfyNode):
     def execute(cls, clip, vae,image,width,height,pos_text,neg_text,) -> io.NodeOutput:
 
         tensor_list=tensor2list(image,width,height)
-        pli_image=nomarl_upscale(image,width,height) if isinstance(image,torch.Tensor) else None
+        #pli_image=nomarl_upscale(image,width,height) if isinstance(image,torch.Tensor) else None
 
-        postive,ref_latents=get_emb_data(clip,vae,pos_text,tensor_list,)
-        negative,_=get_emb_data(clip,vae,neg_text,tensor_list,ng=True,img=tensor_list[0] if tensor_list is not None else None )
-        postive=node_helpers.conditioning_set_values(postive, {"ref_latents": ref_latents}) 
-
+        postive,ref_latents=get_emb_data(clip,vae,pos_text,tensor_list,plus=True if len(tensor_list) > 1 else False)
+        if len(tensor_list) > 1:
+            negative,_=get_emb_data(clip,vae,neg_text,tensor_list,plus=True)
+        else:
+            negative,_=get_emb_data(clip,vae,neg_text,tensor_list,ng=True,img=tensor_list[0])
+        postive=node_helpers.conditioning_set_values(postive, {"reference_latents": ref_latents}) 
+        
         # gc cf model
         cf_models=mm.loaded_models()
         try:
@@ -124,7 +128,10 @@ class Qwen_Edit_GRAG_SM_KSampler(io.ComfyNode):
         )
     @classmethod
     def execute(cls, model,positive,negative,lora,steps,guidance_scale,seed,cond_b,cond_delta,block_num,) -> io.NodeOutput:
-       
+        
+        if isinstance(model,QwenImageEditPlusPipeline) and not isinstance(positive[0][1].get("reference_latents"),list):
+            raise "###### when use edit 2509 need two image input. 使用2509plus模型时.encoder需要输入2张图片. ######"
+
         adapter_path=folder_paths.get_full_path("loras", lora) if lora != "none" else None
         if adapter_path is not None:  
             model.load_lora_weights(adapter_path,weight_name= os.path.basename(adapter_path))
