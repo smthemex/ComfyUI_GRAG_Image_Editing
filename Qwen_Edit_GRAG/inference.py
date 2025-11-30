@@ -2,7 +2,7 @@ import os
 import torch
 import sys
 from termcolor import colored
-from diffusers import QwenImageEditPipeline
+from diffusers import QwenImageEditPipeline,QuantoConfig
 from .hacked_models.scheduler import FlowMatchEulerDiscreteScheduler
 from .hacked_models.pipeline import QwenImageEditPipeline
 from .hacked_models.models import QwenImageTransformer2DModel
@@ -10,7 +10,10 @@ from .hacked_models.pipeline_plus import QwenImageEditPlusPipeline
 import sys
 from .hacked_models.utils import *
 from contextlib import contextmanager
+from accelerate import init_empty_weights
 import sys 
+from .util import load_checkpoint_and_dispatch_
+from accelerate.big_modeling import dispatch_model,get_balanced_memory,infer_auto_device_map
 @contextmanager
 def temp_patch_module_attr(module_name: str, attr_name: str, new_obj):
     mod = sys.modules.get(module_name)
@@ -48,24 +51,38 @@ def load_model(gguf_path,unet_path,node_path):
     else:
         if "2509" in unet_path.lower() or  "plus" in unet_path.lower():
             plus_mode=True
-        print("loading from safetensors")
+        
         try:
+            print("loading from  single file safetensors")
             with temp_patch_module_attr("diffusers", "QwenImageTransformer2DModel", QwenImageTransformer2DModel):
                 transformer = QwenImageTransformer2DModel.from_single_file(unet_path,config=os.path.join(node_path, "Qwen_Edit_GRAG/Qwen-Image-Edit/transformer"),torch_dtype=torch.bfloat16,)
         except:
+            print("loading from single file failed, try to load from single file from dict")
             from safetensors.torch import load_file
-            t_state_dict=load_file(unet_path)
-            new_dict=replace_key(t_state_dict)
-            del t_state_dict
+            sd=load_file(unet_path)
+            sd=replace_key(sd)
+            with init_empty_weights():
+                with temp_patch_module_attr("diffusers", "QwenImageTransformer2DModel", QwenImageTransformer2DModel):
+                    unet_config = QwenImageTransformer2DModel.load_config(os.path.join(node_path, "Qwen_Edit_GRAG/Qwen-Image-Edit/transformer/config.json"))
+                    transformer = QwenImageTransformer2DModel.from_config(unet_config).to(torch.bfloat16)
+            model_state_dict = transformer.state_dict()
+            expected_keys = set(model_state_dict.keys())
+            del transformer
+            filtered_sd = {k: v for k, v in sd.items() if k in expected_keys}
+            # 检查是否有缺失的键
+            missing_keys = expected_keys - set(sd.keys())
+            if missing_keys:
+                print(f"Warning: Missing keys in checkpoint: {missing_keys}")
+            del sd  
             with temp_patch_module_attr("diffusers", "QwenImageTransformer2DModel", QwenImageTransformer2DModel):
-                unet_config = QwenImageTransformer2DModel.load_config(os.path.join(node_path, "Qwen_Edit_GRAG/Qwen-Image-Edit/transformer/config.json"))
-                transformer = QwenImageTransformer2DModel.from_config(unet_config).to(torch.bfloat16)
-            transformer.load_state_dict(new_dict, strict=False)
-            del new_dict
+                transformer = QwenImageTransformer2DModel.from_single_file(filtered_sd,config=os.path.join(node_path, "Qwen_Edit_GRAG/Qwen-Image-Edit/transformer"),torch_dtype=torch.bfloat16,)
+            del filtered_sd
+        
     if plus_mode:
         pipeline = QwenImageEditPlusPipeline.from_pretrained(os.path.join(node_path, "Qwen_Edit_GRAG/Qwen-Image-Edit"), scheduler = scheduler,vae=None,text_encoder=None,transformer=transformer,torch_dtype=torch.bfloat16,)
     else:
         pipeline = QwenImageEditPipeline.from_pretrained(os.path.join(node_path, "Qwen_Edit_GRAG/Qwen-Image-Edit"), scheduler = scheduler,vae=None,text_encoder=None,transformer=transformer,torch_dtype=torch.bfloat16,)   
+   
     return pipeline
 
 def replace_key(t_state_dict):
@@ -73,7 +90,6 @@ def replace_key(t_state_dict):
 
 def inference(pipeline,positive,negative,num_inference_steps,seed,true_cfg_scale,cond_b,cond_delta):
     
-
     seed_everything(seed)
     pipeline.set_progress_bar_config(disable=None)
 
