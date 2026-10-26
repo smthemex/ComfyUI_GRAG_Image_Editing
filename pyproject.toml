@@ -1,9 +1,9 @@
 [project]
 name = "grag_image_editing"
-description = "GRAG-Image-Editing : Group-Relative Attention Guidance for Image Editing,you can try it in comfyUI"
-version = "1.0.0"
+description = "GRAG-Image-Editing : Group-Relative Attention Guidance for Image Editing, on the native comfy DiT stack"
+version = "2.0.0"
 license = {file = "LICENSE"}
-dependencies = ["accelerate", "diffusers", "ipykernel", "matplotlib", "pathlib", "pickleshare", "pip-chill", "termcolor", "tomli", "torch", "torchvision", "transformers", "huggingface_hub"]
+dependencies = []
 
 [project.urls]
 Repository = "https://github.com/smthemex/ComfyUI_GRAG_Image_Editing"
